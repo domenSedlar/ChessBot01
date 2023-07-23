@@ -6,7 +6,7 @@ using System.Collections.Generic;
 public class MyBot : IChessBot
 {
     Dictionary<ulong, int> position_table = new Dictionary<ulong, int>();
-    int[] pieceValues = { 50, 30, 20, 20, 5 };
+    int[] pieceValues = { 60, 40, 27, 27, 10 };
 
     public Move Think(Board board, Timer timer)
     {
