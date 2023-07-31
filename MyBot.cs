@@ -39,8 +39,9 @@ public class MyBot : IChessBot
                 board.UndoMove(moves[i]);
                 continue;
             }
-
-            score = NegaMax(board, timer, 2);
+            board.UndoMove(moves[i]);
+            score = NegaMax(board, timer, 2, moves[i]);
+            board.MakeMove(moves[i]);
             position_table.Add(board.ZobristKey, score);
             if (score > high_score)
             {
@@ -55,40 +56,58 @@ public class MyBot : IChessBot
         return moves[move_i];
     }
 
-    private int Eval(Board board, int depth) {
+    private int Eval(Board board, int depth, Move move) {
+        board.MakeMove(move);
         Move[] moves = board.GetLegalMoves();
         int p1 = moves.Length;
-        if (!board.TrySkipTurn())
-        {
-            return p1;
-        }
 
-        p1 = board.GetLegalMoves().Length + board.GetLegalMoves(true).Length
+        int p2 = board.GetLegalMoves().Length + board.GetLegalMoves(true).Length
                 + board.GetPieceList(PieceType.Queen, board.IsWhiteToMove).Count * pieceValues[0]
                 + board.GetPieceList(PieceType.Rook, board.IsWhiteToMove).Count * pieceValues[1]
                 + board.GetPieceList(PieceType.Bishop, board.IsWhiteToMove).Count * pieceValues[2]
                 + board.GetPieceList(PieceType.Knight, board.IsWhiteToMove).Count * pieceValues[3]
                 + board.GetPieceList(PieceType.Pawn, board.IsWhiteToMove).Count * pieceValues[4];
-        board.UndoSkipTurn();
 
-        int p2 = board.GetLegalMoves().Length + board.GetLegalMoves(true).Length
-        + board.GetPieceList(PieceType.Queen, board.IsWhiteToMove).Count * pieceValues[0]
-        + board.GetPieceList(PieceType.Rook, board.IsWhiteToMove).Count * pieceValues[1]
-        + board.GetPieceList(PieceType.Bishop, board.IsWhiteToMove).Count * pieceValues[2]
-        + board.GetPieceList(PieceType.Knight, board.IsWhiteToMove).Count * pieceValues[3]
-        + board.GetPieceList(PieceType.Pawn, board.IsWhiteToMove).Count * pieceValues[4];
+        if (board.TrySkipTurn())
+        {
+            p1 = board.GetLegalMoves().Length + board.GetLegalMoves(true).Length
+                    + board.GetPieceList(PieceType.Queen, board.IsWhiteToMove).Count * pieceValues[0]
+                    + board.GetPieceList(PieceType.Rook, board.IsWhiteToMove).Count * pieceValues[1]
+                    + board.GetPieceList(PieceType.Bishop, board.IsWhiteToMove).Count * pieceValues[2]
+                    + board.GetPieceList(PieceType.Knight, board.IsWhiteToMove).Count * pieceValues[3]
+                    + board.GetPieceList(PieceType.Pawn, board.IsWhiteToMove).Count * pieceValues[4];
+            board.UndoSkipTurn();
+            board.UndoMove(move);
+        }
+
+        else
+        {
+            board.UndoMove(move);
+            p1 = board.GetLegalMoves().Length + board.GetLegalMoves(true).Length
+                    + board.GetPieceList(PieceType.Queen, board.IsWhiteToMove).Count * pieceValues[0]
+                    + board.GetPieceList(PieceType.Rook, board.IsWhiteToMove).Count * pieceValues[1]
+                    + board.GetPieceList(PieceType.Bishop, board.IsWhiteToMove).Count * pieceValues[2]
+                    + board.GetPieceList(PieceType.Knight, board.IsWhiteToMove).Count * pieceValues[3]
+                    + board.GetPieceList(PieceType.Pawn, board.IsWhiteToMove).Count * pieceValues[4];
+        }
+
+
+
 
         return (depth%2==0) ?  (p1 - p2) : -(p1-p2);
     }
 
-    private int NegaMax(Board board, Timer timer, int depth)
+    private int NegaMax(Board board, Timer timer, int depth, Move mv)
     {
 
         if (depth == 0)
         {
-            return Eval(board, depth);
+            return Eval(board, depth, mv);
         }
 
+
+        board.MakeMove(mv);
+        
         int max_score = int.MinValue;
         int score = 0;
         Move[] moves = board.GetLegalMoves();
@@ -97,16 +116,14 @@ public class MyBot : IChessBot
 
         for (int i = 0; i < c; i++)
         {
-            board.MakeMove(moves[i]);
-
-            score = NegaMax(board, timer, depth);
+            score = NegaMax(board, timer, depth, moves[i]);
             if (score > max_score)
             {
                 max_score = score;
             }
-
-            board.UndoMove(moves[i]);
         }
+
+        board.UndoMove(mv);
 
         return -max_score;
     }
