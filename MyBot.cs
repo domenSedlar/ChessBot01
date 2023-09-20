@@ -2,131 +2,172 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Threading.Tasks.Sources;
+using System.Linq;
+//using System.Linq;
 
 public class MyBot : IChessBot
 {
+const int multiplier = 30;
+int[] pieceValues = { 9* multiplier, 5 * multiplier, 3 * multiplier, 3 * multiplier, 1 * multiplier };
+    public Move Think(Board board, Timer timer)
+    {
+        int high_score = int.MinValue;
+        Move[] moves = board.GetLegalMoves();
+        int score = 0;
+        Move bm = moves[0];
+        var ordered_moves = new SortedDictionary<int, List<Move>>(); 
 
-    Dictionary<ulong, int> position_table = new Dictionary<ulong, int>();
-    int[] pieceValues = { 60, 40, 27, 27, 10 };
-            public Move Think(Board board, Timer timer)
-        {
-            int high_score = -1000;
-            int move_i = 0;
-            Move[] moves = board.GetLegalMoves();
-            int c = moves.Length;
-            int score = 0;
-            for (int i = 0; i < c; i++)
-            {
-
-                board.MakeMove(moves[i]);
-                if (board.IsInCheckmate())
-                {
-                    position_table.Add(board.ZobristKey, 1000);
-
-                    return moves[i];
-                }
-
-                if (position_table.ContainsKey(board.ZobristKey))
-                {
-                    if (position_table[board.ZobristKey] > high_score)
-                    {
-                        high_score = score;
-                        move_i = i;
-
-                    }
-                    board.UndoMove(moves[i]);
-                    continue;
-                }
-                board.UndoMove(moves[i]);
-                score = AlphaBeta(board, timer, 3, moves[i], int.MinValue, int.MaxValue);
-                board.MakeMove(moves[i]);
-                position_table.Add(board.ZobristKey, score);
-                if (score > high_score)
-                {
-                    high_score = score;
-                    move_i = i;
-
-
-                }
-
-                board.UndoMove(moves[i]);
-            }
-            return moves[move_i];
-        }
-
-        private int Eval(Board board, int depth, Move move)
+        foreach (var move in moves)
         {
             board.MakeMove(move);
-            Move[] moves = board.GetLegalMoves();
-            int p1 = moves.Length;
-
-            int p2 = board.GetLegalMoves().Length + board.GetLegalMoves(true).Length
-                    + board.GetPieceList(PieceType.Queen, board.IsWhiteToMove).Count * pieceValues[0]
-                    + board.GetPieceList(PieceType.Rook, board.IsWhiteToMove).Count * pieceValues[1]
-                    + board.GetPieceList(PieceType.Bishop, board.IsWhiteToMove).Count * pieceValues[2]
-                    + board.GetPieceList(PieceType.Knight, board.IsWhiteToMove).Count * pieceValues[3]
-                    + board.GetPieceList(PieceType.Pawn, board.IsWhiteToMove).Count * pieceValues[4];
-
-            if (board.TrySkipTurn())
+            if (board.IsInCheckmate())
             {
-                p1 = board.GetLegalMoves().Length + board.GetLegalMoves(true).Length
-                        + board.GetPieceList(PieceType.Queen, board.IsWhiteToMove).Count * pieceValues[0]
-                        + board.GetPieceList(PieceType.Rook, board.IsWhiteToMove).Count * pieceValues[1]
-                        + board.GetPieceList(PieceType.Bishop, board.IsWhiteToMove).Count * pieceValues[2]
-                        + board.GetPieceList(PieceType.Knight, board.IsWhiteToMove).Count * pieceValues[3]
-                        + board.GetPieceList(PieceType.Pawn, board.IsWhiteToMove).Count * pieceValues[4];
-                board.UndoSkipTurn();
-                board.UndoMove(move);
+                return move;
             }
+            board.UndoMove(move);
 
+            score = -AlphaBeta(board, int.MinValue, int.MaxValue, 0, move);
+
+            if (!ordered_moves.ContainsKey(score))
+            {
+                List<Move> new_moves = new List<Move>();
+                new_moves.Add(move);
+                ordered_moves.Add(score, new_moves);
+            }
             else
             {
-                board.UndoMove(move);
-                p1 = board.GetLegalMoves().Length + board.GetLegalMoves(true).Length
-                        + board.GetPieceList(PieceType.Queen, board.IsWhiteToMove).Count * pieceValues[0]
-                        + board.GetPieceList(PieceType.Rook, board.IsWhiteToMove).Count * pieceValues[1]
-                        + board.GetPieceList(PieceType.Bishop, board.IsWhiteToMove).Count * pieceValues[2]
-                        + board.GetPieceList(PieceType.Knight, board.IsWhiteToMove).Count * pieceValues[3]
-                        + board.GetPieceList(PieceType.Pawn, board.IsWhiteToMove).Count * pieceValues[4];
-            }
 
-            return (depth % 2 == 0) ? (p1 - p2) : -(p1 - p2);
+                ordered_moves[score].Add(move);
+            }
+            board.UndoMove(move);
+
+            //score = NegaMax(board, timer, 2, move);
+            if (score > high_score)
+            {
+                high_score = score;
+                bm = move;
+            }
         }
-        //alpha je min score ki ga lhko dobiš
-        //beta je max score ki ga lhko dobiš
-        private int AlphaBeta(Board board, Timer timer, int depth, Move mv, int alpha, int beta)
+
+        Move nbm = bm;
+        int new_high_score = int.MinValue;
+        for (int i = 1; i <= 2; i++)
         {
+            var new_ordered_moves = new SortedDictionary<int, List<Move>>();
 
-            if (depth == 0)
+            foreach (var m in ordered_moves.Values)
             {
-                return Eval(board, depth, mv);
-            }
-
-
-            board.MakeMove(mv);
-
-            int score = 0;
-            Move[] moves = board.GetLegalMoves();
-            int c = moves.Length;
-            depth--;
-
-            for (int i = 0; i < c; i++)
-            {
-                score = AlphaBeta(board, timer, depth, moves[i], -beta, -alpha);
-                if(score >= beta)
+                foreach (var move in m)
                 {
-                    board.UndoMove(mv);
-                    return -score;
-                }
-                if (score > alpha)
-                {
-                    alpha = score;
+                    board.MakeMove(move);
+                    if (board.IsInCheckmate())
+                    {
+                        return move;
+                    }
+                    board.UndoMove(move);
+
+                    score = -AlphaBeta(board, int.MinValue, int.MaxValue, i, move);
+                    board.UndoMove(move);
+
+                    if (!new_ordered_moves.ContainsKey(score))
+                    {
+                        List<Move> new_moves = new List<Move>();
+                        new_moves.Add(move);
+                        new_ordered_moves.Add(score, new_moves);
+                    }
+                    else
+                    {
+
+                        new_ordered_moves[score].Add(move);
+                    }
+
+                    //score = NegaMax(board, timer, 2, move);
+                    if (score > new_high_score)
+                    {
+                        new_high_score = score;
+                        nbm = move;
+                    }
                 }
             }
-
-            board.UndoMove(mv);
-
-            return -alpha;
+            ordered_moves = new_ordered_moves;
+            bm = nbm;
         }
+        return bm;
+    }
+
+    private int Eval(Board board, Move move)
+    {
+        int p1 = GetColorValue(board);
+        board.MakeMove(move);
+        Move[] moves = board.GetLegalMoves();
+
+        int p2 = GetColorValue(board);
+
+        if (board.TrySkipTurn())
+        {
+            p1 = GetColorValue(board);
+            board.UndoSkipTurn();
+        }
+        else if (board.IsInCheckmate())
+        {
+            return int.MaxValue;
+        }
+
+        return p1 - p2;
+    }
+
+    /*
+     alpha beta(depthleft=?, alpha=MinValue, beta=MaxValue)
+            if depthleft == 0:
+                return -Eval()
+            
+            depthleft--
+            
+            score
+
+            foreach move:
+                score = -alphabeta(depthleft, -beta, -alpha)
+                alpha = max(score, alpha)
+
+                if score >= beta:
+                    break
+            return alpha
+     */
+
+    private int AlphaBeta(Board board, int alpha, int beta, int depthleft, Move m)
+    {
+        if (depthleft == 0)
+        {
+            return -Eval(board, m);
+        }
+        depthleft--;
+        int score;
+        board.MakeMove(m);
+
+        foreach(Move mv in board.GetLegalMoves())
+        {
+            score = -AlphaBeta(board, int.MinValue, -alpha, depthleft, mv);
+            board.UndoMove(mv);
+            if (score > alpha)
+            {
+                alpha = score;
+            }
+            if (score >= beta){
+                return alpha;
+            }
+        }
+
+        return alpha;
+    }
+
+    private int GetColorValue(Board board)
+    {
+        return board.GetLegalMoves().Length + board.GetLegalMoves(true).Length
+        + board.GetPieceList(PieceType.Queen, board.IsWhiteToMove).Count * pieceValues[0]
+        + board.GetPieceList(PieceType.Rook, board.IsWhiteToMove).Count * pieceValues[1]
+        + board.GetPieceList(PieceType.Bishop, board.IsWhiteToMove).Count * pieceValues[2]
+        + board.GetPieceList(PieceType.Knight, board.IsWhiteToMove).Count * pieceValues[3]
+        + board.GetPieceList(PieceType.Pawn, board.IsWhiteToMove).Count * pieceValues[4];
+    }
+
 }
