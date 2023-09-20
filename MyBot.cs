@@ -7,10 +7,22 @@ using System.Linq;
 
 public class MyBot : IChessBot
 {
-const int multiplier = 30;
-int[] pieceValues = { 9* multiplier, 5 * multiplier, 3 * multiplier, 3 * multiplier, 1 * multiplier };
+    const int multiplier = 30;
+    int[] pieceValues = { 9* multiplier, 5 * multiplier, 3 * multiplier, 3 * multiplier, 1 * multiplier };
+
+    int time_limit = -1;
+    int time_buffer = -1;
+    int expected_moves = 40;
+    int buffer_factor = 20;
+
     public Move Think(Board board, Timer timer)
     {
+        if(time_limit == -1)
+        {
+            time_limit = timer.MillisecondsRemaining;
+            time_buffer = (int) (time_limit / buffer_factor);
+        }
+
         int high_score = int.MinValue;
         Move[] moves = board.GetLegalMoves();
         int score = 0;
@@ -51,14 +63,28 @@ int[] pieceValues = { 9* multiplier, 5 * multiplier, 3 * multiplier, 3 * multipl
 
         Move nbm = bm;
         int new_high_score = int.MinValue;
-        for (int i = 1; i <= 2; i++)
+        int i = 1;
+        if (timer.MillisecondsRemaining < time_buffer)
         {
+            time_limit = timer.MillisecondsRemaining;
+            expected_moves = 30;
+            time_buffer = 0;
+        }
+        int time_for_move = (time_limit-time_buffer) / expected_moves;
+
+        while (timer.MillisecondsElapsedThisTurn < time_for_move)
+        {
+
             var new_ordered_moves = new SortedDictionary<int, List<Move>>();
 
             foreach (var m in ordered_moves.Values)
             {
                 foreach (var move in m)
                 {
+                    if (timer.MillisecondsElapsedThisTurn > time_for_move || timer.MillisecondsRemaining < 600)
+                    {
+                        return bm;
+                    }
                     board.MakeMove(move);
                     if (board.IsInCheckmate())
                     {
@@ -87,11 +113,18 @@ int[] pieceValues = { 9* multiplier, 5 * multiplier, 3 * multiplier, 3 * multipl
                         new_high_score = score;
                         nbm = move;
                     }
+                    if (timer.MillisecondsElapsedThisTurn > time_for_move || timer.MillisecondsRemaining < 600)
+                    {
+                        return bm;
+                    }
                 }
             }
             ordered_moves = new_ordered_moves;
             bm = nbm;
+            i++;
         }
+
+
         return bm;
     }
 
@@ -110,7 +143,7 @@ int[] pieceValues = { 9* multiplier, 5 * multiplier, 3 * multiplier, 3 * multipl
         }
         else if (board.IsInCheckmate())
         {
-            return int.MaxValue;
+            return -int.MaxValue;
         }
 
         return p1 - p2;
